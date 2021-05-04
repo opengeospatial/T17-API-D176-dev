@@ -1,0 +1,19 @@
+<ngx-charts-line-chart *ngIf="data[0].series.length > 0"
+    [results]="data"
+    [view]="view"
+    [scheme]="colorScheme"
+    [legend]="legend"
+    [showXAxisLabel]="showXAxisLabel"
+    [showYAxisLabel]="showYAxisLabel"
+    [xAxis]="xAxis"
+    [yAxis]="yAxis"
+    [xAxisLabel]="xAxisLabel"
+    [yAxisLabel]="yAxisLabel"
+    [timeline]="timeline"
+    (select)="onSelect($event)"
+    (activate)="onActivate($event)"
+    (deactivate)="onDeactivate($event)"
+>
+</ngx-charts-line-chart>
+
+<mat-progress-spinner *ngIf="loading"></mat-progress-spinner>
