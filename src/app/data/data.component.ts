@@ -39,7 +39,7 @@ export class DataComponent implements OnInit {
 
   ngOnInit(): void {
     let config = new Configuration();
-    config.basePath = "http://labs.metoffice.gov.uk/edr"
+    config.basePath = "labs.metoffice.gov.uk/edr"
     this.dataService.configuration = config
 
     let longitude = -0.45;

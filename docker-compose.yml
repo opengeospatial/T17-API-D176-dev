@@ -1,9 +1,16 @@
-version: '3'
+version: "3"
 
 services:
-    ogc-api-demo:
-        build: .
-        hostname: ogc-api-demo
-        restart: always
-        ports:
-            - 8000:8000
+  ogc-api-demo:
+    build: .
+    container_name: ogctb17-api-demo
+    hostname: ogctb17-api-demo
+    restart: always
+    ports:
+      - 8000:8000
+    networks:
+      - ogctb17
+
+networks:
+  ogctb17:
+    name: ogctb17-apis

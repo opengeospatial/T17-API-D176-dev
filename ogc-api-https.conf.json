@@ -1,0 +1,10 @@
+{
+  "/labs.metoffice.gov.uk": {
+    "target": "http://labs.metoffice.gov.uk/",
+    "secure": false,
+    "logLevel": "debug",
+    "pathRewrite": {
+      "^/labs.metoffice.gov.uk": ""
+    }
+  }
+}
