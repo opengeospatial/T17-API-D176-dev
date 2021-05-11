@@ -16,12 +16,14 @@ import { LocationsComponent } from './locations/locations.component';
 import { DataComponent } from './data/data.component';
 import { NgxChartsModule } from '@swimlane/ngx-charts';
 import { FormsModule } from '@angular/forms';
+import { EarthComponent } from './earth/earth.component';
 
 const routes: Routes = [
   { path: 'collections', component: CollectionsComponent },
   { path: 'locations', component: LocationsComponent },
   { path: 'data', component: DataComponent },
-  { path: '', redirectTo: 'data', pathMatch: 'full' },
+  { path: 'earth', component: EarthComponent },
+  { path: '', redirectTo: 'earth', pathMatch: 'full' },
 ];
 
 @NgModule({
@@ -29,7 +31,8 @@ const routes: Routes = [
     AppComponent,
     CollectionsComponent,
     LocationsComponent,
-    DataComponent
+    DataComponent,
+    EarthComponent
   ],
   imports: [
     BrowserModule,
