@@ -27,6 +27,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
     this.wwd.addLayer(new WorldWind.BMNGLayer());
     this.wwd.addLayer(new WorldWind.BMNGLandsatLayer());
+    this.wwd.addLayer(new WorldWind.AtmosphereLayer());
 
     this.wwd.addLayer(new WorldWind.CompassLayer());
     this.wwd.addLayer(new WorldWind.CoordinatesDisplayLayer(this.wwd));
@@ -34,13 +35,13 @@ export class EarthComponent implements OnInit, AfterViewInit {
     this.placemarkLayer = new WorldWind.RenderableLayer("Place Marks")
 
     this.shapesLayer = new WorldWind.RenderableLayer("Surface Shapes");
-    this.wwd.addLayer(this.shapesLayer);    
+    this.wwd.addLayer(this.shapesLayer);
 
     this.wwd.addLayer(this.placemarkLayer);
 
-    this.wwd.navigator.range = 25000000;
-    this.wwd.navigator.lookAtLocation.latitude = 50;
-    this.wwd.navigator.lookAtLocation.longitude = 0;
+    this.wwd.navigator.range = 500000;
+    this.wwd.navigator.lookAtLocation.latitude = 51.5;
+    this.wwd.navigator.lookAtLocation.longitude = -0.3;
 
     this.wwd.redraw();
 
@@ -59,7 +60,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
     let radiusUnit = "km";
 
     let collection = "metar_demo";
-    
+
     let attributes = new WorldWind.ShapeAttributes(null);
     attributes.outlineColor = WorldWind.Color.BLUE;
     attributes.interiorColor = new WorldWind.Color(0, 1, 1, 0.5);
