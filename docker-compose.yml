@@ -13,4 +13,4 @@ services:
 
 networks:
   ogctb17:
-    name: ogctb17-apis
+    name: ogctb17
