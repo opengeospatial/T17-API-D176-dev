@@ -1,2 +1,68 @@
+<mat-expansion-panel [expanded]="true" class="settings-panel" hideToggle>
+    <mat-expansion-panel-header>
+        <mat-panel-title>
+            OGC API Client Demo
+        </mat-panel-title>
+        <mat-panel-description>
+            Collection Settings
+        </mat-panel-description>
+    </mat-expansion-panel-header>
+
+    <div fxLayout="column" fxLayoutAlign="start start">
+        <mat-form-field fxFlexFill>
+            <mat-label>Collection</mat-label>
+            <mat-select [(value)]="selectedCollection" (valueChange)="onCollectionSelected()">
+                <mat-option *ngFor="let collection of collections" [value]="collection">{{collection.title}}</mat-option>
+            </mat-select>
+        </mat-form-field>
+
+        <mat-form-field *ngIf="selectedCollection" fxFlexFill>
+            <mat-label>Parameter</mat-label>
+            <mat-select [(value)]="selectedParameter">
+                <mat-option *ngFor="let item of selectedCollection.parameter_names | keyvalue"
+                    [value]="item.key">{{item.key}}</mat-option>
+            </mat-select>
+        </mat-form-field>
+
+        <mat-form-field fxFlexFill *ngIf="selectedParameter">
+            <mat-label>Date</mat-label>
+            <input matInput [matDatepicker]="picker" [(ngModel)]="datetime">
+            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+
+        <div fxLayout="row" fxLayoutAlign="start center" fxFlexFill *ngIf="bbox">
+            <mat-form-field style="margin-right: 0.5rem;">
+                <mat-label>Min. Lon.</mat-label>
+                <input type="number" matInput [(ngModel)]="bbox[0]">
+            </mat-form-field>
+
+            <mat-form-field>
+                <mat-label>Min. Lat.</mat-label>
+                <input type="number" matInput [(ngModel)]="bbox[1]">
+            </mat-form-field>
+        </div>
+
+        <div fxLayout="row" fxLayoutAlign="start center" fxFlexFill *ngIf="bbox">
+            <mat-form-field style="margin-right: 0.5rem;">
+                <mat-label>Max. Lon.</mat-label>
+                <input type="number" matInput [(ngModel)]="bbox[2]">
+            </mat-form-field>
+
+            <mat-form-field>
+                <mat-label>Max. Lat.</mat-label>
+                <input type="number" matInput [(ngModel)]="bbox[3]">
+            </mat-form-field>
+        </div>
+    
+        <div fxLayout="row" fxLayoutAlign="end center" fxFlexFill>
+            <button *ngIf="!loading" (click)="getData()"
+                [disabled]="!selectedParameter || !selectedCollection" mat-raised-button color="primary">Load</button>
+            <mat-spinner style="width: 1rem; height: 1rem;" *ngIf="loading"></mat-spinner>
+        </div>
+    </div>
+
+</mat-expansion-panel>
+
 <canvas class="world-wind" id="earth">
 </canvas>

@@ -11,12 +11,20 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { MatTableModule } from '@angular/material/table';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 
 import { LocationsComponent } from './locations/locations.component';
 import { DataComponent } from './data/data.component';
 import { NgxChartsModule } from '@swimlane/ngx-charts';
 import { FormsModule } from '@angular/forms';
 import { EarthComponent } from './earth/earth.component';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { FlexLayoutModule } from '@angular/flex-layout';
+import { MatButtonModule } from '@angular/material/button';
+import { MatNativeDateModule } from '@angular/material/core';
+import { MatInputModule } from '@angular/material/input';
 
 const routes: Routes = [
   { path: 'collections', component: CollectionsComponent },
@@ -43,7 +51,15 @@ const routes: Routes = [
     MatTableModule,
     MatToolbarModule,
     MatProgressSpinnerModule,
-    NgxChartsModule
+    MatExpansionModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
+    MatInputModule,
+    NgxChartsModule,
+    FlexLayoutModule 
   ],
   providers: [],
   bootstrap: [AppComponent]
