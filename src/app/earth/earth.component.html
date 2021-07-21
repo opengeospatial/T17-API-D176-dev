@@ -16,20 +16,20 @@
             </mat-select>
         </mat-form-field>
 
-        <mat-form-field *ngIf="selectedCollection" fxFlexFill>
+        <!--<mat-form-field *ngIf="selectedCollection" fxFlexFill>
             <mat-label>Parameter</mat-label>
             <mat-select [(value)]="selectedParameter">
                 <mat-option *ngFor="let item of selectedCollection.parameter_names | keyvalue"
                     [value]="item.key">{{item.key}}</mat-option>
             </mat-select>
-        </mat-form-field>
+        </mat-form-field>-->
 
-        <mat-form-field fxFlexFill *ngIf="selectedParameter">
+        <!--<mat-form-field fxFlexFill *ngIf="selectedParameter">
             <mat-label>Date</mat-label>
             <input matInput [matDatepicker]="picker" [(ngModel)]="datetime">
             <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
             <mat-datepicker #picker></mat-datepicker>
-        </mat-form-field>
+        </mat-form-field>-->
 
         <div fxLayout="row" fxLayoutAlign="start center" fxFlexFill *ngIf="bbox">
             <mat-form-field style="margin-right: 0.5rem;">
@@ -56,9 +56,9 @@
         </div>
     
         <div fxLayout="row" fxLayoutAlign="end center" fxFlexFill>
-            <button *ngIf="!loading" (click)="getData()"
-                [disabled]="!selectedParameter || !selectedCollection" mat-raised-button color="primary">Load</button>
-            <mat-spinner style="width: 1rem; height: 1rem;" *ngIf="loading"></mat-spinner>
+            <button *ngIf="!loading" (click)="getFeatures()"
+                [disabled]="!selectedCollection" mat-raised-button color="primary">Load</button>
+            <mat-spinner [diameter]="32" *ngIf="loading"></mat-spinner>
         </div>
     </div>
 
