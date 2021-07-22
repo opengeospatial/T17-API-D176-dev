@@ -95,6 +95,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
             break;
         }
       }
+      this.wwd.redraw();
     }, err => {
       this.loading = false;
     })
