@@ -1,7 +1,6 @@
-import { TextAttribute } from '@angular/compiler/src/render3/r3_ast';
 import { AfterViewInit, Component, OnInit } from '@angular/core';
 import * as WorldWind from '@nasaworldwind/worldwind';
-import { CapabilitiesService, Collection, Configuration, DataService } from '../api-features';
+import { Configuration, CollectionInfoJson, CollectionsService, MapsService, VectorFeaturesAndCatalogueRecordsService } from '../api-daraa';
 
 @Component({
   selector: 'app-earth',
@@ -11,11 +10,10 @@ import { CapabilitiesService, Collection, Configuration, DataService } from '../
 export class EarthComponent implements OnInit, AfterViewInit {
 
   private wwd: any;
-  private featuresLayer: any;
-  private shapesLayer: any;
+  private renderableLayer: any;
 
-  public collections: Collection[];
-  public selectedCollection: Collection;
+  public collections: CollectionInfoJson[];
+  public selectedCollection: CollectionInfoJson;
   public selectedParameter: string;
   public datetime: Date;
 
@@ -24,8 +22,9 @@ export class EarthComponent implements OnInit, AfterViewInit {
   public loading: boolean;
 
   constructor(
-    private dataService: DataService,
-    private capabilitiesService: CapabilitiesService) { }
+    private mapsService: MapsService,
+    private featuresService: VectorFeaturesAndCatalogueRecordsService,
+    private collectionsService: CollectionsService) { }
 
   ngOnInit(): void {
     this.datetime = new Date();
@@ -41,12 +40,9 @@ export class EarthComponent implements OnInit, AfterViewInit {
     this.wwd.addLayer(new WorldWind.CompassLayer());
     this.wwd.addLayer(new WorldWind.CoordinatesDisplayLayer(this.wwd));
     this.wwd.addLayer(new WorldWind.ViewControlsLayer(this.wwd));
-    this.featuresLayer = new WorldWind.RenderableLayer("Features")
+    this.renderableLayer = new WorldWind.RenderableLayer("Renderables")
 
-    this.shapesLayer = new WorldWind.RenderableLayer("Surface Shapes");
-    this.wwd.addLayer(this.shapesLayer);
-
-    this.wwd.addLayer(this.featuresLayer);
+    this.wwd.addLayer(this.renderableLayer);
 
     this.wwd.navigator.range = 300000;
     this.wwd.navigator.lookAtLocation.latitude = 32.6;
@@ -55,30 +51,36 @@ export class EarthComponent implements OnInit, AfterViewInit {
     this.wwd.redraw();
 
     let config = new Configuration();
-    config.basePath = "https://test.cubewerx.com/cubewerx/cubeserv/demo/ogcapi/Daraa"
-    this.dataService.configuration = config;
-    this.capabilitiesService.configuration = config;
+    config.credentials = {};
+    config.basePath = "https://test.cubewerx.com/cubewerx/cubeserv/demo/ogcapi/Daraa";
+
+    this.collectionsService.configuration = config;
+    this.featuresService.configuration = config;
+    this.mapsService.configuration = config;
 
     this.getCollections();
   }
 
   getCollections() {
-    this.capabilitiesService.getCollections().subscribe(result => {
+    this.collectionsService.collectionsGet().subscribe(result => {
       this.collections = result.collections;
     });
   }
 
+  /**
+   * Get features data and render it
+   */
   getFeatures() {
     this.loading = true;
 
-    this.dataService.getFeatures(this.selectedCollection.id, 1000, this.bbox.join(",") as any).subscribe(result => {
-      console.log(result);
+    this.featuresService.getFeatures(this.selectedCollection.id as any, "application/json", 1000, this.bbox).subscribe(result => {
+      console.log(result as any);
 
       this.loading = false;
 
-      this.featuresLayer.removeAllRenderables();
+      this.renderableLayer.removeAllRenderables();
 
-      for (let feature of result.features) {
+      for (let feature of (result as any).features) {
 
         switch (feature.geometry.type) {
           case "Polygon":
@@ -101,7 +103,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
   /**
    * Create a point object in the renderable layer
    */
-  createPoint(latitude: number, longitude: number, label="") {
+  createPoint(latitude: number, longitude: number, label = "") {
     let placemarkAttributes = new WorldWind.PlacemarkAttributes(null);
 
     // Create the custom image for the placemark with a 2D canvas.
@@ -124,13 +126,13 @@ export class EarthComponent implements OnInit, AfterViewInit {
     placemark.altitudeMode = WorldWind.RELATIVE_TO_GROUND;
     placemark.label = label;
 
-    this.featuresLayer.addRenderable(placemark);
+    this.renderableLayer.addRenderable(placemark);
   }
 
   /**
    * Create a polygon object in the renderable layer
    */
-  createPolygon(coordinates, label="") {
+  createPolygon(coordinates, label = "") {
     var boundaries = [];
     boundaries[0] = []; // outer boundary
 
@@ -160,7 +162,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
     polygon.attributes = polygonAttributes;
 
     // Add the polygon to the layer
-    this.featuresLayer.addRenderable(polygon);
+    this.renderableLayer.addRenderable(polygon);
 
     this.createText(avgLat, avgLon, label);
 
@@ -169,7 +171,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
   /**
    * Create a path object in the renderable layer
    */
-  createPath(coordinates, label="") {
+  createPath(coordinates, label = "") {
     // Create the path's positions.
     var pathPositions = [];
 
@@ -196,7 +198,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
     pathAttributes.outlineColor = WorldWind.Color.BLUE;
     path.attributes = pathAttributes;
 
-    this.featuresLayer.addRenderable(path);
+    this.renderableLayer.addRenderable(path);
 
     this.createText(avgLat, avgLon, label);
   }
@@ -208,12 +210,65 @@ export class EarthComponent implements OnInit, AfterViewInit {
     let geoText = new WorldWind.GeographicText(new WorldWind.Position(latitude, longitude), text);
     geoText.altitudeMode = WorldWind.CLAMP_TO_GROUND;
     geoText.depthTest = false;
-    this.featuresLayer.addRenderable(geoText);
+    this.renderableLayer.addRenderable(geoText);
   }
 
   onCollectionSelected() {
     console.log(this.selectedCollection);
     this.bbox = this.selectedCollection.extent.spatial.bbox[0];
+  }
+
+  /**
+   * Get map data and render it
+   */
+  getMap() {
+    this.loading = true;
+
+    this.mapsService.mapGet([this.selectedCollection.id as any], undefined, "CRS84",
+        this.bbox, undefined, undefined, undefined, undefined, undefined,
+        undefined, "png", undefined, undefined, {httpHeaderAccept: "image/png"}).subscribe(result => {
+      console.log(result);
+
+      try {
+        let imgUrl = window.URL.createObjectURL(new Blob([result], {type: "image/png"}));
+
+        // Create canvas to hold the image
+        let canvas = document.createElement("canvas")
+        let ctx2d = canvas.getContext("2d");
+
+        let img = new Image();
+        img.src = imgUrl;
+
+        img.onload = () => {
+          canvas.height = img.height;
+          canvas.width = img.width;
+          ctx2d.drawImage(img, 0, 0);
+
+          this.renderableLayer.removeAllRenderables();
+
+          let sector = new WorldWind.Sector(this.bbox[1], this.bbox[3], this.bbox[0], this.bbox[2]);
+
+          let surfaceImage = new WorldWind.SurfaceImage(
+            sector,
+            new WorldWind.ImageSource(canvas)
+          );
+
+          surfaceImage.opacity = 0.8;
+
+          this.renderableLayer.addRenderable(surfaceImage);
+
+          this.wwd.redraw();
+          this.loading = false;
+        }
+      }
+      catch (e) {
+        console.error(e);
+        this.loading = false;
+      }
+
+    }, err => {
+      this.loading = false;
+    });
   }
 
 }
