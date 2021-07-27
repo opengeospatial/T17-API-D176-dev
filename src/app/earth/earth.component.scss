@@ -1,9 +1,11 @@
 .settings-panel {
   position: absolute;
+  top: 0;
+  left: 0;
 }
 
 canvas.world-wind {
-  width: auto;
-  height: auto;
+  width: 100vw;
+  height: 100vh;
   background-color: black;
 }

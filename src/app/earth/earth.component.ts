@@ -6,10 +6,7 @@ import { CapabilitiesService, Collection, Configuration, DataService } from '../
 @Component({
   selector: 'app-earth',
   templateUrl: './earth.component.html',
-  styleUrls: ['./earth.component.scss'],
-  host: {
-    class: 'earth-flex'
-  }
+  styleUrls: ['./earth.component.scss']
 })
 export class EarthComponent implements OnInit, AfterViewInit {
 
