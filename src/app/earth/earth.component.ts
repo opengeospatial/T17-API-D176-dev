@@ -44,15 +44,15 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
     this.wwd.addLayer(this.renderableLayer);
 
-    this.wwd.navigator.range = 300000;
-    this.wwd.navigator.lookAtLocation.latitude = 32.6;
-    this.wwd.navigator.lookAtLocation.longitude = 36.0;
+    this.wwd.navigator.range = 30000000;
+    this.wwd.navigator.lookAtLocation.latitude = 0.0;
+    this.wwd.navigator.lookAtLocation.longitude = 0.0;
 
     this.wwd.redraw();
 
     let config = new Configuration();
     config.credentials = {};
-    config.basePath = "https://test.cubewerx.com/cubewerx/cubeserv/demo/ogcapi/Daraa";
+    config.basePath = "https://aws4ogc17.webmapengine.com/";
 
     this.collectionsService.configuration = config;
     this.featuresService.configuration = config;
@@ -73,7 +73,11 @@ export class EarthComponent implements OnInit, AfterViewInit {
   getFeatures() {
     this.loading = true;
 
-    this.featuresService.getFeatures(this.selectedCollection.id as any, "application/json", 1000, this.bbox).subscribe(result => {
+    // NOTE: The server can only return max. 1000 features in one request.
+    // Results can be paginated with "offset" parameter but the generated API doesn't have this
+    //NOTE: Order of coordinates in the bbox is inconsistent between collections
+    this.featuresService.getFeatures(this.selectedCollection.id as any, "application/json", 1000,
+      [this.bbox[1], this.bbox[0], this.bbox[3], this.bbox[2]]).subscribe(result => {
       console.log(result as any);
 
       this.loading = false;
@@ -86,14 +90,36 @@ export class EarthComponent implements OnInit, AfterViewInit {
           case "Polygon":
             this.createPolygon(feature.geometry.coordinates[0], feature.id.toString());
             break;
+          case "MultiPolygon":
+            for (let coords of feature.geometry.coordinates) {
+              this.createPolygon(coords[0], feature.id.toString());
+            }
+            break;
           case "Point":
             this.createPoint(feature.geometry.coordinates[1], feature.geometry.coordinates[0], feature.id.toString())
             break;
           case "LineString":
             this.createPath(feature.geometry.coordinates, feature.id.toString())
             break;
+          case "MultiLineString":
+            for (let coords of feature.geometry.coordinates) {
+              this.createPath(coords, feature.id.toString())
+            }
+            break;
         }
       }
+
+      // Move camera to the center of the bounding box
+      let centroid = new WorldWind.Location();
+
+      let sector = new WorldWind.Sector(this.bbox[1], this.bbox[3], this.bbox[0], this.bbox[2]);
+      sector.centroid(centroid);
+      let currentLocation = this.wwd.navigator.lookAtLocation;
+
+      if (!sector.containsLocation(currentLocation.latitude, currentLocation.longitude)) {
+        this.wwd.goTo(centroid);
+      }
+
       this.wwd.redraw();
     }, err => {
       this.loading = false;
@@ -133,6 +159,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
    * Create a polygon object in the renderable layer
    */
   createPolygon(coordinates, label = "") {
+    // TODO: Add rendering of holes in polygons
     var boundaries = [];
     boundaries[0] = []; // outer boundary
 
@@ -165,7 +192,6 @@ export class EarthComponent implements OnInit, AfterViewInit {
     this.renderableLayer.addRenderable(polygon);
 
     this.createText(avgLat, avgLon, label);
-
   }
 
   /**

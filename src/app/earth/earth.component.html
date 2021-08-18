@@ -56,7 +56,7 @@
         </div>
     
         <div fxLayout="row" fxLayoutAlign="end center" fxFlexFill>
-            <button *ngIf="!loading" (click)="selectedCollection.itemType == 'feature' ? getFeatures() : getMap()"
+            <button *ngIf="!loading" (click)="getFeatures()"
                 [disabled]="!selectedCollection" mat-raised-button color="primary">Load</button>
             <mat-spinner [diameter]="36" *ngIf="loading"></mat-spinner>
         </div>
