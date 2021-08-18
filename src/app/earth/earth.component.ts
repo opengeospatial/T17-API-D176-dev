@@ -88,11 +88,11 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
         switch (feature.geometry.type) {
           case "Polygon":
-            this.createPolygon(feature.geometry.coordinates[0], feature.id.toString());
+            this.createPolygon(feature.geometry.coordinates, feature.id.toString());
             break;
           case "MultiPolygon":
             for (let coords of feature.geometry.coordinates) {
-              this.createPolygon(coords[0], feature.id.toString());
+              this.createPolygon(coords, feature.id.toString());
             }
             break;
           case "Point":
@@ -159,17 +159,19 @@ export class EarthComponent implements OnInit, AfterViewInit {
    * Create a polygon object in the renderable layer
    */
   createPolygon(coordinates, label = "") {
-    // TODO: Add rendering of holes in polygons
     var boundaries = [];
-    boundaries[0] = []; // outer boundary
 
     let avgLat = 0;
     let avgLon = 0;
 
-    for (let coordinate of coordinates) {
-      boundaries[0].push(new WorldWind.Position(coordinate[1], coordinate[0]));
-      avgLat += coordinate[1];
-      avgLon += coordinate[0];
+    for (let coords of coordinates) {
+      let b = []
+      for (let coordinate of coords) {
+        b.push(new WorldWind.Position(coordinate[1], coordinate[0]));
+        avgLat += coordinate[1];
+        avgLon += coordinate[0];
+      }
+      boundaries.push(b);
     }
 
     avgLat /= coordinates.length;
