@@ -1,6 +1,8 @@
 import { AfterViewInit, Component, OnInit } from '@angular/core';
 import * as WorldWind from '@nasaworldwind/worldwind';
+import { Subscription, timer } from 'rxjs';
 import { Configuration, CollectionInfoJson, CollectionsService, MapsService, VectorFeaturesAndCatalogueRecordsService } from '../api-daraa';
+import { CapabilitiesService, Collection, CollectionDataQueriesService } from '../api-edr';
 
 @Component({
   selector: 'app-earth',
@@ -12,22 +14,53 @@ export class EarthComponent implements OnInit, AfterViewInit {
   private wwd: any;
   private renderableLayer: any;
 
-  public collections: CollectionInfoJson[];
-  public selectedCollection: CollectionInfoJson;
+  public edrCollections: Collection[];
+  public selectedEdrCollection: Collection;
+  public featureCollections: CollectionInfoJson[];
+  public selectedFeatureCollection: CollectionInfoJson;
   public selectedParameter: string;
-  public datetime: Date;
+  public selectedTime: Date;
+  public selectedTimeMs: number;
+  public minTimeMs: number;
+  public maxTimeMs: number;
 
   public bbox: number[];
 
-  public loading: boolean;
+  public loading: boolean = true;
+
+  public playTimer: Subscription;
+
+  public servers: Server[] = [
+    {
+      url: "https://aws4ogc17.webmapengine.com/",
+      type: "features"
+    },
+    {
+      url: "http://labs.metoffice.gov.uk/edr/",
+      type: "edr"
+    }
+  ]
+
+  public selectedServer: Server = this.servers[0];
 
   constructor(
     private mapsService: MapsService,
     private featuresService: VectorFeaturesAndCatalogueRecordsService,
-    private collectionsService: CollectionsService) { }
+    private collectionsService: CollectionsService,
+    private dataService: CollectionDataQueriesService,
+    private capabilitiesService: CapabilitiesService) { }
 
   ngOnInit(): void {
-    this.datetime = new Date();
+    this.selectedTime = new Date();
+    this.selectedTime.setHours(this.selectedTime.getHours() - 1);
+    this.selectedTimeMs = this.selectedTime.getTime();
+
+    this.maxTimeMs = this.selectedTimeMs;
+
+    let minTime = new Date();
+    minTime.setHours(minTime.getHours() - 24);
+
+    this.minTimeMs = minTime.getTime();
   }
 
   ngAfterViewInit() {
@@ -50,20 +83,84 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
     this.wwd.redraw();
 
-    let config = new Configuration();
-    config.credentials = {};
-    config.basePath = "https://aws4ogc17.webmapengine.com/";
-
-    this.collectionsService.configuration = config;
-    this.featuresService.configuration = config;
-    this.mapsService.configuration = config;
-
-    this.getCollections();
+    this.updateServerConfiguration();
   }
 
-  getCollections() {
+  /**
+   * Update date when time slider is moved
+   */
+  onTimeSliderChanged() {
+    this.selectedTime = new Date(this.selectedTimeMs);
+
+    this.getData();
+  }
+
+    /**
+   * Start slider 'play' mode
+   */
+    playSlider() {
+      this.playTimer = timer(0, 5000).subscribe(() => {
+          this.selectedTimeMs += 3600000;
+          
+          if (this.selectedTimeMs >= this.maxTimeMs) {
+            this.selectedTimeMs = this.minTimeMs;
+          }
+
+          this.onTimeSliderChanged();
+          this.getData();
+
+      });
+    }
+
+    
+    /**
+     * Stop slider 'play' mode
+     */
+    stopSlider() {
+      if (this.playTimer) {
+        this.playTimer.unsubscribe();
+      }
+  
+      this.playTimer = null;
+    }
+
+  /**
+   * Switch the server used for requesting data
+   */
+   updateServerConfiguration() {
+    let config = new Configuration();
+    config.credentials = {};
+    config.basePath = this.selectedServer.url;
+
+    switch (this.selectedServer.type) {
+      case "features":
+        this.collectionsService.configuration = config;
+        this.featuresService.configuration = config;
+        this.mapsService.configuration = config;
+        this.getFeatureCollections();
+        break;
+      case "edr":
+        this.capabilitiesService.configuration = config;
+        this.dataService.configuration = config;
+        this.getEdrCollections();
+        break;
+    }
+  }
+
+  getEdrCollections() {
+    this.loading = true;
+    this.capabilitiesService.listCollections().subscribe(result => {
+      this.loading = false;
+      this.edrCollections = result.collections;
+    });
+  }
+
+  getFeatureCollections() {
+    this.stopSlider();
+    this.loading = true;
     this.collectionsService.collectionsGet().subscribe(result => {
-      this.collections = result.collections;
+      this.loading = false;
+      this.featureCollections = result.collections;
     });
   }
 
@@ -76,7 +173,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
     // NOTE: The server can only return max. 1000 features in one request.
     // Results can be paginated with "offset" parameter but the generated API doesn't have this
     //NOTE: Order of coordinates in the bbox is inconsistent between collections
-    this.featuresService.getFeatures(this.selectedCollection.id as any, "application/json", 1000,
+    this.featuresService.getFeatures(this.selectedFeatureCollection.id as any, "application/json", 1000,
       [this.bbox[1], this.bbox[0], this.bbox[3], this.bbox[2]]).subscribe(result => {
       console.log(result as any);
 
@@ -241,9 +338,11 @@ export class EarthComponent implements OnInit, AfterViewInit {
     this.renderableLayer.addRenderable(geoText);
   }
 
-  onCollectionSelected() {
-    console.log(this.selectedCollection);
-    this.bbox = this.selectedCollection.extent.spatial.bbox[0];
+  onFeatureCollectionSelected() {
+    console.log(this.selectedFeatureCollection);
+    this.bbox = this.selectedFeatureCollection.extent.spatial.bbox[0];
+
+    this.getData();
   }
 
   /**
@@ -252,7 +351,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
   getMap() {
     this.loading = true;
 
-    this.mapsService.mapGet([this.selectedCollection.id as any], undefined, "CRS84",
+    this.mapsService.mapGet([this.selectedFeatureCollection.id as any], undefined, "CRS84",
         this.bbox, undefined, undefined, undefined, undefined, undefined,
         undefined, "png", undefined, undefined, {httpHeaderAccept: "image/png"}).subscribe(result => {
       console.log(result);
@@ -299,4 +398,97 @@ export class EarthComponent implements OnInit, AfterViewInit {
     });
   }
 
+  getData() {
+    switch (this.selectedServer.type) {
+      case "features":
+        this.getFeatures();
+        break;
+      case "edr":
+        this.getEdrData();
+        break;
+    }
+  }
+
+  getEdrData() {
+    let timeStr = this.selectedTime.toISOString();
+
+    let z = undefined;
+
+    let minLon = -180.0;
+    let minLat = -90.0;
+    let maxLon = 180.0;
+    let maxLat = 90.0;
+
+    let area = `POLYGON((${minLon} ${maxLat},${maxLon} ${maxLat},${maxLon} ${minLat},${minLon} ${minLat},${minLon} ${maxLat}))`;
+
+    this.loading = true;
+
+    this.dataService.getDataForArea(this.selectedEdrCollection.id, area, z,
+      timeStr, this.selectedParameter).subscribe(r => {
+        console.log(r);
+        this.loading = false;
+
+        this.renderableLayer.removeAllRenderables();
+
+        let result = r as any;
+
+        let goToLocation;
+
+        if (result.coverages) {
+
+          for (let coverage of result.coverages) {
+            let value = coverage.ranges[this.selectedParameter].values[0].toString();
+            let unit = result.parameters[this.selectedParameter].unit.label.en;
+
+            this.createPlaceMark(
+              `${value} ${unit}`,
+              coverage.domain.axes.y.values[0],
+              coverage.domain.axes.x.values[0]
+            )
+
+            goToLocation = new WorldWind.Location(coverage.domain.axes.y.values[0], coverage.domain.axes.x.values[0]);
+          }
+        }
+
+        console.log("go to location...", goToLocation);
+
+        this.wwd.goTo(goToLocation);
+
+        this.wwd.redraw();
+      }, err =>{
+        this.loading = false;
+      });
+  }
+
+  createPlaceMark(label: string, latitude: number, longitude: number) {
+    let placemarkAttributes = new WorldWind.PlacemarkAttributes(null);
+
+    // Create the custom image for the placemark with a 2D canvas.
+    let canvas = document.createElement("canvas")
+    let ctx2d = canvas.getContext("2d");
+    let size = 64;
+    let c = size / 2 - 0.5;
+    let outerRadius = 10;
+
+    canvas.width = size;
+    canvas.height = size;
+
+    ctx2d.fillStyle = "red";
+    ctx2d.arc(c, c, outerRadius, 0, 2 * Math.PI, false);
+    ctx2d.fill();
+
+    placemarkAttributes.imageSource = new WorldWind.ImageSource(canvas);
+
+    let placemark = new WorldWind.Placemark(new WorldWind.Position(latitude, longitude, 0), false, placemarkAttributes);
+    placemark.label = label;
+    placemark.altitudeMode = WorldWind.RELATIVE_TO_GROUND;
+
+    this.renderableLayer.addRenderable(placemark);
+  }
+
+}
+
+interface Server {
+  url: string;
+  type: "features" | "edr"
 }

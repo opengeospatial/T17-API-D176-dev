@@ -10,54 +10,76 @@
 
     <div fxLayout="column" fxLayoutAlign="start start">
         <mat-form-field fxFlexFill>
-            <mat-label>Collection</mat-label>
-            <mat-select [(value)]="selectedCollection" (valueChange)="onCollectionSelected()">
-                <mat-option *ngFor="let collection of collections" [value]="collection">{{collection.title}}</mat-option>
+            <mat-label>Server</mat-label>
+            <mat-select [(value)]="selectedServer" (valueChange)="updateServerConfiguration()">
+                <mat-option *ngFor="let server of servers" [value]="server">{{server.url}}</mat-option>
             </mat-select>
         </mat-form-field>
 
-        <!--<mat-form-field *ngIf="selectedCollection" fxFlexFill>
-            <mat-label>Parameter</mat-label>
-            <mat-select [(value)]="selectedParameter">
-                <mat-option *ngFor="let item of selectedCollection.parameter_names | keyvalue"
-                    [value]="item.key">{{item.key}}</mat-option>
-            </mat-select>
-        </mat-form-field>-->
-
-        <!--<mat-form-field fxFlexFill *ngIf="selectedParameter">
-            <mat-label>Date</mat-label>
-            <input matInput [matDatepicker]="picker" [(ngModel)]="datetime">
-            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-            <mat-datepicker #picker></mat-datepicker>
-        </mat-form-field>-->
-
-        <div fxLayout="row" fxLayoutAlign="start center" fxFlexFill *ngIf="bbox">
-            <mat-form-field style="margin-right: 0.5rem;">
-                <mat-label>Min. Lon.</mat-label>
-                <input type="number" matInput [(ngModel)]="bbox[0]">
+        <ng-container *ngIf="selectedServer.type == 'edr'">
+            <mat-form-field fxFlexFill>
+                <mat-label>Collection</mat-label>
+                <mat-select [(value)]="selectedEdrCollection">
+                    <mat-option *ngFor="let collection of edrCollections" [value]="collection">{{collection.title}}</mat-option>
+                </mat-select>
             </mat-form-field>
 
-            <mat-form-field>
-                <mat-label>Min. Lat.</mat-label>
-                <input type="number" matInput [(ngModel)]="bbox[1]">
+            <mat-form-field *ngIf="selectedEdrCollection" fxFlexFill>
+                <mat-label>Parameter</mat-label>
+                <mat-select [(value)]="selectedParameter" (valueChange)="getData()">
+                    <mat-option *ngFor="let item of selectedEdrCollection.parameter_names | keyvalue"
+                        [value]="item.key">{{item.key}}</mat-option>
+                </mat-select>
             </mat-form-field>
-        </div>
+            
+            <div fxFlexFill fxLayout="row" *ngIf="selectedParameter">
+                <span>{{selectedTime | date: "yyyy-MM-dd HH:mm:ss"}}</span>
+            </div>
 
-        <div fxLayout="row" fxLayoutAlign="start center" fxFlexFill *ngIf="bbox">
-            <mat-form-field style="margin-right: 0.5rem;">
-                <mat-label>Max. Lon.</mat-label>
-                <input type="number" matInput [(ngModel)]="bbox[2]">
+            <div fxFlexFill fxLayout="row" *ngIf="selectedParameter">
+                <button mat-icon-button color="primary" aria-label="Example icon-button with a heart icon" (click)="playTimer ? stopSlider() : playSlider()">
+                    <mat-icon>{{playTimer ? "pause" : "play_arrow"}}</mat-icon>
+                </button>
+                <mat-slider style="width: 100%;" [min]="minTimeMs" [max]="maxTimeMs" step="0.5" [(value)]="selectedTimeMs" (change)="onTimeSliderChanged()"></mat-slider>
+            </div>
+        </ng-container>
+
+        <ng-container *ngIf="selectedServer.type == 'features'">
+            <mat-form-field fxFlexFill>
+                <mat-label>Collection</mat-label>
+                <mat-select [(value)]="selectedFeatureCollection" (valueChange)="onFeatureCollectionSelected()">
+                    <mat-option *ngFor="let collection of featureCollections" [value]="collection">{{collection.title}}</mat-option>
+                </mat-select>
             </mat-form-field>
 
-            <mat-form-field>
-                <mat-label>Max. Lat.</mat-label>
-                <input type="number" matInput [(ngModel)]="bbox[3]">
-            </mat-form-field>
-        </div>
-    
+            <div fxLayout="row" fxLayoutAlign="start center" fxFlexFill *ngIf="bbox">
+                <mat-form-field style="margin-right: 0.5rem;">
+                    <mat-label>Min. Lon.</mat-label>
+                    <input type="number" matInput [(ngModel)]="bbox[0]" (change)="getData()">
+                </mat-form-field>
+
+                <mat-form-field>
+                    <mat-label>Min. Lat.</mat-label>
+                    <input type="number" matInput [(ngModel)]="bbox[1]" (change)="getData()">
+                </mat-form-field>
+            </div>
+
+            <div fxLayout="row" fxLayoutAlign="start center" fxFlexFill *ngIf="bbox">
+                <mat-form-field style="margin-right: 0.5rem;">
+                    <mat-label>Max. Lon.</mat-label>
+                    <input type="number" matInput [(ngModel)]="bbox[2]" (change)="getData()">
+                </mat-form-field>
+
+                <mat-form-field>
+                    <mat-label>Max. Lat.</mat-label>
+                    <input type="number" matInput [(ngModel)]="bbox[3]" (change)="getData()">
+                </mat-form-field>
+            </div>
+        </ng-container>
+
         <div fxLayout="row" fxLayoutAlign="end center" fxFlexFill>
-            <button *ngIf="!loading" (click)="getFeatures()"
-                [disabled]="!selectedCollection" mat-raised-button color="primary">Load</button>
+            <!--<button *ngIf="!loading" (click)="getData()"
+                mat-raised-button color="primary">Load</button>-->
             <mat-spinner [diameter]="36" *ngIf="loading"></mat-spinner>
         </div>
     </div>
