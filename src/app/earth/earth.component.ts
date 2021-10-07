@@ -32,11 +32,15 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
   public servers: Server[] = [
     {
-      url: "https://aws4ogc17.webmapengine.com/",
+      url: "https://aws4ogc17.webmapengine.com/edr",
+      type: "edr"
+    },
+    {
+      url: "https://aws4ogc17.webmapengine.com/wfs3",
       type: "features"
     },
     {
-      url: "http://labs.metoffice.gov.uk/edr/",
+      url: "/labs.metoffice.gov.uk/edr",
       type: "edr"
     }
   ]
@@ -107,8 +111,6 @@ export class EarthComponent implements OnInit, AfterViewInit {
           }
 
           this.onTimeSliderChanged();
-          this.getData();
-
       });
     }
 
@@ -260,6 +262,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
     let avgLat = 0;
     let avgLon = 0;
+    let points = 0;
 
     for (let coords of coordinates) {
       let b = []
@@ -267,12 +270,13 @@ export class EarthComponent implements OnInit, AfterViewInit {
         b.push(new WorldWind.Position(coordinate[1], coordinate[0]));
         avgLat += coordinate[1];
         avgLon += coordinate[0];
+        points ++;
       }
       boundaries.push(b);
     }
 
-    avgLat /= coordinates.length;
-    avgLon /= coordinates.length;
+    avgLat /= points;
+    avgLon /= points;
 
     // Create the polygon and assign its attributes.
 
