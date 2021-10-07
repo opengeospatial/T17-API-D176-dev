@@ -2,7 +2,7 @@ import { AfterViewInit, Component, OnInit } from '@angular/core';
 import * as WorldWind from '@nasaworldwind/worldwind';
 import { Subscription, timer } from 'rxjs';
 import { Configuration, CollectionInfoJson, CollectionsService, MapsService, VectorFeaturesAndCatalogueRecordsService } from '../api-daraa';
-import { CapabilitiesService, Collection, CollectionDataQueriesService } from '../api-edr';
+import { CapabilitiesService, Collection, CollectionDataQueriesService, CollectionMetadataService, FeatureGeoJSON } from '../api-edr';
 
 @Component({
   selector: 'app-earth',
@@ -15,10 +15,14 @@ export class EarthComponent implements OnInit, AfterViewInit {
   private renderableLayer: any;
 
   public edrCollections: Collection[];
-  public selectedEdrCollection: Collection;
+  public selectedEdrCollection: Collection = null;
   public featureCollections: CollectionInfoJson[];
-  public selectedFeatureCollection: CollectionInfoJson;
-  public selectedParameter: string;
+  public selectedFeatureCollection: CollectionInfoJson = null;
+  public selectedParameter: string = null;
+  public parameters: string[];
+  public locations: FeatureGeoJSON[];
+  public selectedLocation: FeatureGeoJSON = null;
+  public currentEdrFeature: any;
   public selectedTime: Date;
   public selectedTimeMs: number;
   public minTimeMs: number;
@@ -39,10 +43,10 @@ export class EarthComponent implements OnInit, AfterViewInit {
       url: "https://aws4ogc17.webmapengine.com/wfs3",
       type: "features"
     },
-    {
+    /**{
       url: "/labs.metoffice.gov.uk/edr",
       type: "edr"
-    }
+    }**/
   ]
 
   public selectedServer: Server = this.servers[0];
@@ -50,9 +54,10 @@ export class EarthComponent implements OnInit, AfterViewInit {
   constructor(
     private mapsService: MapsService,
     private featuresService: VectorFeaturesAndCatalogueRecordsService,
-    private collectionsService: CollectionsService,
-    private dataService: CollectionDataQueriesService,
-    private capabilitiesService: CapabilitiesService) { }
+    private featureCollectionsService: CollectionsService,
+    private edrDataService: CollectionDataQueriesService,
+    private edrCapabilitiesService: CapabilitiesService,
+    private edrMetadataService: CollectionMetadataService) { }
 
   ngOnInit(): void {
     this.selectedTime = new Date();
@@ -104,7 +109,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
    */
     playSlider() {
       this.playTimer = timer(0, 5000).subscribe(() => {
-          this.selectedTimeMs += 3600000;
+          this.selectedTimeMs += (this.maxTimeMs - this.minTimeMs) / 10;
           
           if (this.selectedTimeMs >= this.maxTimeMs) {
             this.selectedTimeMs = this.minTimeMs;
@@ -136,14 +141,19 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
     switch (this.selectedServer.type) {
       case "features":
-        this.collectionsService.configuration = config;
+        this.featureCollectionsService.configuration = config;
         this.featuresService.configuration = config;
         this.mapsService.configuration = config;
+        this.selectedFeatureCollection = null;
         this.getFeatureCollections();
         break;
       case "edr":
-        this.capabilitiesService.configuration = config;
-        this.dataService.configuration = config;
+        this.edrCapabilitiesService.configuration = config;
+        this.edrDataService.configuration = config;
+        this.edrMetadataService.configuration = config;
+        this.selectedParameter = null;
+        this.selectedLocation = null;
+        this.selectedEdrCollection = null;
         this.getEdrCollections();
         break;
     }
@@ -151,7 +161,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
   getEdrCollections() {
     this.loading = true;
-    this.capabilitiesService.listCollections().subscribe(result => {
+    this.edrCapabilitiesService.listCollections().subscribe(result => {
       this.loading = false;
       this.edrCollections = result.collections;
     });
@@ -160,10 +170,35 @@ export class EarthComponent implements OnInit, AfterViewInit {
   getFeatureCollections() {
     this.stopSlider();
     this.loading = true;
-    this.collectionsService.collectionsGet().subscribe(result => {
+    this.featureCollectionsService.collectionsGet().subscribe(result => {
       this.loading = false;
       this.featureCollections = result.collections;
     });
+  }
+
+  /**
+   * Locations need to be requested when EDR collection changes
+   */
+  onEdrCollectionChange() {
+
+    this.minTimeMs = new Date(this.selectedEdrCollection.extent.temporal.interval[0][0]).getTime();
+    this.maxTimeMs = new Date(this.selectedEdrCollection.extent.temporal.interval[0][1]).getTime();
+    this.selectedTime = new Date(this.minTimeMs);
+    this.selectedTimeMs = this.selectedTime.getTime();
+
+    this.loading = true;
+    this.edrMetadataService.listCollectionDataLocations(
+      this.selectedEdrCollection.id, null, null, 1000).subscribe(result => {
+        this.loading = false;
+        this.locations = result.features;
+
+        this.renderableLayer.removeAllRenderables();
+
+        // Render locations on the globe
+        for (let location of this.locations) {
+          this.renderFeature(location);
+        }
+      })
   }
 
   /**
@@ -184,28 +219,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
       this.renderableLayer.removeAllRenderables();
 
       for (let feature of (result as any).features) {
-
-        switch (feature.geometry.type) {
-          case "Polygon":
-            this.createPolygon(feature.geometry.coordinates, feature.id.toString());
-            break;
-          case "MultiPolygon":
-            for (let coords of feature.geometry.coordinates) {
-              this.createPolygon(coords, feature.id.toString());
-            }
-            break;
-          case "Point":
-            this.createPoint(feature.geometry.coordinates[1], feature.geometry.coordinates[0], feature.id.toString())
-            break;
-          case "LineString":
-            this.createPath(feature.geometry.coordinates, feature.id.toString())
-            break;
-          case "MultiLineString":
-            for (let coords of feature.geometry.coordinates) {
-              this.createPath(coords, feature.id.toString())
-            }
-            break;
-        }
+        this.renderFeature(feature);
       }
 
       // Move camera to the center of the bounding box
@@ -223,6 +237,33 @@ export class EarthComponent implements OnInit, AfterViewInit {
     }, err => {
       this.loading = false;
     })
+  }
+
+  /**
+   * Renders a feature
+   */
+  renderFeature(feature) {
+    switch (feature.geometry.type) {
+      case "Polygon":
+        this.createPolygon(feature.geometry.coordinates, feature.id.toString());
+        break;
+      case "MultiPolygon":
+        for (let coords of feature.geometry.coordinates) {
+          this.createPolygon(coords, feature.id.toString());
+        }
+        break;
+      case "Point":
+        this.createPoint(feature.geometry.coordinates[1], feature.geometry.coordinates[0], feature.id.toString())
+        break;
+      case "LineString":
+        this.createPath(feature.geometry.coordinates, feature.id.toString())
+        break;
+      case "MultiLineString":
+        for (let coords of feature.geometry.coordinates) {
+          this.createPath(coords, feature.id.toString())
+        }
+        break;
+    }
   }
 
   /**
@@ -427,8 +468,8 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
     this.loading = true;
 
-    this.dataService.getDataForArea(this.selectedEdrCollection.id, area, z,
-      timeStr, this.selectedParameter).subscribe(r => {
+    this.edrDataService.getCollectionDataForLocation(this.selectedEdrCollection.id, this.selectedLocation.id.toString(),
+      timeStr, null, "application/geo+json").subscribe(r => {
         console.log(r);
         this.loading = false;
 
@@ -452,6 +493,24 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
             goToLocation = new WorldWind.Location(coverage.domain.axes.y.values[0], coverage.domain.axes.x.values[0]);
           }
+        } else if (result.features) {
+          if (result.features.length > 0) {
+            let feature = result.features[0];
+
+            // TODO: Is there a way to get the properties with metadata?
+            this.parameters = Object.keys(feature.properties);
+            if (!this.selectedParameter) {
+              this.selectedParameter = this.parameters[0];
+            }
+
+            this.currentEdrFeature = feature;
+
+            this.onParameterSelected();
+
+            goToLocation = new WorldWind.Location(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
+          } else {
+            return;
+          }
         }
 
         console.log("go to location...", goToLocation);
@@ -462,6 +521,17 @@ export class EarthComponent implements OnInit, AfterViewInit {
       }, err =>{
         this.loading = false;
       });
+  }
+
+  /**
+   * Switch which parameter is being displayed
+   */
+  onParameterSelected() {
+    this.renderableLayer.removeAllRenderables();
+    this.createPlaceMark(
+      this.currentEdrFeature.properties[this.selectedParameter].toString(),
+      this.currentEdrFeature.geometry.coordinates[1], this.currentEdrFeature.geometry.coordinates[0]
+    )
   }
 
   createPlaceMark(label: string, latitude: number, longitude: number) {

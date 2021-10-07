@@ -19,24 +19,32 @@
         <ng-container *ngIf="selectedServer.type == 'edr'">
             <mat-form-field fxFlexFill>
                 <mat-label>Collection</mat-label>
-                <mat-select [(value)]="selectedEdrCollection">
+                <mat-select [(value)]="selectedEdrCollection" (valueChange)="onEdrCollectionChange()">
                     <mat-option *ngFor="let collection of edrCollections" [value]="collection">{{collection.title}}</mat-option>
                 </mat-select>
             </mat-form-field>
 
             <mat-form-field *ngIf="selectedEdrCollection" fxFlexFill>
+                <mat-label>Location</mat-label>
+                <mat-select [(value)]="selectedLocation" (valueChange)="getData()">
+                    <mat-option *ngFor="let location of locations"
+                        [value]="location">{{location.id}}</mat-option>
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field *ngIf="selectedLocation" fxFlexFill>
                 <mat-label>Parameter</mat-label>
-                <mat-select [(value)]="selectedParameter" (valueChange)="getData()">
-                    <mat-option *ngFor="let item of selectedEdrCollection.parameter_names | keyvalue"
-                        [value]="item.key">{{item.key}}</mat-option>
+                <mat-select [(value)]="selectedParameter" (valueChange)="onParameterSelected()">
+                    <mat-option *ngFor="let param of parameters"
+                        [value]="param">{{param}}</mat-option>
                 </mat-select>
             </mat-form-field>
             
-            <div fxFlexFill fxLayout="row" *ngIf="selectedParameter">
+            <div fxFlexFill fxLayout="row" *ngIf="selectedLocation">
                 <span>{{selectedTime | date: "yyyy-MM-dd HH:mm:ss"}}</span>
             </div>
 
-            <div fxFlexFill fxLayout="row" *ngIf="selectedParameter">
+            <div fxFlexFill fxLayout="row" *ngIf="selectedLocation">
                 <button mat-icon-button color="primary" aria-label="Example icon-button with a heart icon" (click)="playTimer ? stopSlider() : playSlider()">
                     <mat-icon>{{playTimer ? "pause" : "play_arrow"}}</mat-icon>
                 </button>
