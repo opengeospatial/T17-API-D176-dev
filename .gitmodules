@@ -1,0 +1,3 @@
+[submodule "local_packages/WebWorldWind-OGCTB17"]
+	path = local_packages/WebWorldWind-OGCTB17
+	url = git@github.com:karriojala/WebWorldWind-OGCTB17.git

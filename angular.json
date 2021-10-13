@@ -31,7 +31,7 @@
               "src/assets",
               {
                 "glob": "**/*",
-                "input": "./node_modules/@nasaworldwind/worldwind/build/dist/images",
+                "input": "./node_modules/worldwind-ogctb17/build/dist/images",
                 "output": "/images"
               }
             ],

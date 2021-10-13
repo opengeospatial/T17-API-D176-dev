@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve --proxy-config ogc-api-https.conf.json",
+    "start": "ng serve --proxy-config ogc-api-https.conf.json --host 0.0.0.0",
     "build": "ng build",
     "test": "ng test",
     "lint": "ng lint",
@@ -22,7 +22,6 @@
     "@angular/platform-browser": "~11.2.12",
     "@angular/platform-browser-dynamic": "~11.2.12",
     "@angular/router": "~11.2.12",
-    "@nasaworldwind/worldwind": "^0.10.0",
     "@swimlane/ngx-charts": "^17.0.1",
     "rxjs": "~6.6.0",
     "tslib": "^2.0.0",
