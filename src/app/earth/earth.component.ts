@@ -282,7 +282,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
     canvas.width = size;
     canvas.height = size;
 
-    ctx2d.fillStyle = "blue";
+    ctx2d.fillStyle = "red";
     ctx2d.arc(c, c, outerRadius, 0, 2 * Math.PI, false);
     ctx2d.fill();
 
@@ -327,7 +327,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
     var polygonAttributes = new WorldWind.ShapeAttributes(null);
     polygonAttributes.drawInterior = true;
     polygonAttributes.drawOutline = true;
-    polygonAttributes.outlineColor = WorldWind.Color.BLUE;
+    polygonAttributes.outlineColor = WorldWind.Color.RED;
     polygonAttributes.interiorColor = new WorldWind.Color(0, 1, 1, 0.5);
     polygonAttributes.applyLighting = true;
     polygon.attributes = polygonAttributes;
@@ -365,7 +365,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
     // Create and assign the path's attributes.
     var pathAttributes = new WorldWind.ShapeAttributes(null);
-    pathAttributes.outlineColor = WorldWind.Color.BLUE;
+    pathAttributes.outlineColor = WorldWind.Color.RED;
     path.attributes = pathAttributes;
 
     this.renderableLayer.addRenderable(path);
