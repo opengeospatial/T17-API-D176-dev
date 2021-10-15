@@ -43,10 +43,10 @@ export class EarthComponent implements OnInit, AfterViewInit {
       url: "https://aws4ogc17.webmapengine.com/wfs3",
       type: "features"
     },
-    /**{
-      url: "/labs.metoffice.gov.uk/edr",
-      type: "edr"
-    }**/
+    {
+      url: "/ogcapi.pixalytics.com",
+      type: "features"
+    }
   ]
 
   public selectedServer: Server = this.servers[0];
@@ -385,8 +385,20 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
   onFeatureCollectionSelected() {
     console.log(this.selectedFeatureCollection);
-    this.bbox = this.selectedFeatureCollection.extent.spatial.bbox[0];
+    let bboxData;
+    if (this.selectedFeatureCollection.extent.spatial) {
+      bboxData = this.selectedFeatureCollection.extent.spatial.bbox[0];
+    } else if (this.selectedFeatureCollection.extent["bbox"]) {
+      bboxData = this.selectedFeatureCollection.extent["bbox"];
+    }
 
+    // In case the bounding box is in two parts
+    if (bboxData.length == 2) {
+      this.bbox = [...bboxData[0], ...bboxData[1]]
+    } else if (bboxData.length == 1) {
+      this.bbox = bboxData[0]
+    }
+    
     this.getData();
   }
 
