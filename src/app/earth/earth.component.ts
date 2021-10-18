@@ -60,6 +60,8 @@ export class EarthComponent implements OnInit, AfterViewInit {
     private edrMetadataService: CollectionMetadataService) { }
 
   ngOnInit(): void {
+    WorldWind.Logger.setLoggingLevel(WorldWind.Logger.LEVEL_INFO);
+
     this.selectedTime = new Date();
     this.selectedTime.setHours(this.selectedTime.getHours() - 1);
     this.selectedTimeMs = this.selectedTime.getTime();
@@ -190,14 +192,16 @@ export class EarthComponent implements OnInit, AfterViewInit {
     this.edrMetadataService.listCollectionDataLocations(
       this.selectedEdrCollection.id, null, null, 1000).subscribe(result => {
         this.loading = false;
-        this.locations = result.features;
 
         this.renderableLayer.removeAllRenderables();
 
-        // Render locations on the globe
-        for (let location of this.locations) {
-          this.renderFeature(location);
+        // WorldWind expects CRS in different format
+        if (result["crs"] && result["crs"].properties.name == "urn:ogc:def:crs:OGC::CRS84") {
+          result["crs"].properties.name = "urn:ogc:def:crs:OGC:1.3:CRS84"
         }
+        let parser = new WorldWind.GeoJSONParser(result);
+        parser.load(this.parserCompletionCallback.bind(this), this.shapeConfigurationCallback.bind(this), this.renderableLayer);
+        this.locations = result.features;
       })
   }
 
@@ -218,9 +222,13 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
       this.renderableLayer.removeAllRenderables();
 
-      for (let feature of (result as any).features) {
-        this.renderFeature(feature);
+      // WorldWind expects CRS in different format
+      if (result["crs"] && result["crs"].properties.name == "urn:ogc:def:crs:OGC::CRS84") {
+        result["crs"].properties.name = "urn:ogc:def:crs:OGC:1.3:CRS84"
       }
+
+      let parser = new WorldWind.GeoJSONParser(result);
+      parser.load(this.parserCompletionCallback.bind(this), this.shapeConfigurationCallback.bind(this), this.renderableLayer);
 
       // Move camera to the center of the bounding box
       let centroid = new WorldWind.Location();
@@ -240,138 +248,77 @@ export class EarthComponent implements OnInit, AfterViewInit {
   }
 
   /**
-   * Renders a feature
+   * Parser completion callback for GeoJSONParser
+   * Called after features have been added to the layer
+   * Creates labels for features (placemarks already have them)
    */
-  renderFeature(feature) {
-    switch (feature.geometry.type) {
-      case "Polygon":
-        this.createPolygon(feature.geometry.coordinates, feature.id.toString());
-        break;
-      case "MultiPolygon":
-        for (let coords of feature.geometry.coordinates) {
-          this.createPolygon(coords, feature.id.toString());
-        }
-        break;
-      case "Point":
-        this.createPoint(feature.geometry.coordinates[1], feature.geometry.coordinates[0], feature.id.toString())
-        break;
-      case "LineString":
-        this.createPath(feature.geometry.coordinates, feature.id.toString())
-        break;
-      case "MultiLineString":
-        for (let coords of feature.geometry.coordinates) {
-          this.createPath(coords, feature.id.toString())
-        }
-        break;
-    }
-  }
-
-  /**
-   * Create a point object in the renderable layer
-   */
-  createPoint(latitude: number, longitude: number, label = "") {
-    let placemarkAttributes = new WorldWind.PlacemarkAttributes(null);
-
-    // Create the custom image for the placemark with a 2D canvas.
-    let canvas = document.createElement("canvas")
-    let ctx2d = canvas.getContext("2d");
-    let size = 64;
-    let c = size / 2 - 0.5;
-    let outerRadius = 5;
-
-    canvas.width = size;
-    canvas.height = size;
-
-    ctx2d.fillStyle = "red";
-    ctx2d.arc(c, c, outerRadius, 0, 2 * Math.PI, false);
-    ctx2d.fill();
-
-    placemarkAttributes.imageSource = new WorldWind.ImageSource(canvas);
-
-    let placemark = new WorldWind.Placemark(new WorldWind.Position(latitude, longitude, 0), false, placemarkAttributes);
-    placemark.altitudeMode = WorldWind.RELATIVE_TO_GROUND;
-    placemark.label = label;
-
-    this.renderableLayer.addRenderable(placemark);
-  }
-
-  /**
-   * Create a polygon object in the renderable layer
-   */
-  createPolygon(coordinates, label = "") {
-    var boundaries = [];
-
-    let avgLat = 0;
-    let avgLon = 0;
-    let points = 0;
-
-    for (let coords of coordinates) {
-      let b = []
-      for (let coordinate of coords) {
-        b.push(new WorldWind.Position(coordinate[1], coordinate[0]));
-        avgLat += coordinate[1];
-        avgLon += coordinate[0];
-        points ++;
+  parserCompletionCallback(layer) {
+    console.log(layer);
+    for (let renderable of layer.renderables) {
+      if (renderable instanceof WorldWind.Placemark) {
+        continue;
       }
-      boundaries.push(b);
+      if (renderable.userProperties._featureLabel) {
+        
+        // Show label at the center of the feature
+        let centroid = new WorldWind.Location();
+        renderable.computeSectors();
+        renderable.boundingSector.centroid(centroid);
+
+        this.createText(centroid.latitude, centroid.longitude, renderable.userProperties._featureLabel);
+      }
     }
-
-    avgLat /= points;
-    avgLon /= points;
-
-    // Create the polygon and assign its attributes.
-
-    var polygon = new WorldWind.SurfacePolygon(boundaries, null);
-    polygon.extrude = true; // extrude the polygon edges to the ground
-
-    var polygonAttributes = new WorldWind.ShapeAttributes(null);
-    polygonAttributes.drawInterior = true;
-    polygonAttributes.drawOutline = true;
-    polygonAttributes.outlineColor = WorldWind.Color.RED;
-    polygonAttributes.interiorColor = new WorldWind.Color(0, 1, 1, 0.5);
-    polygonAttributes.applyLighting = true;
-    polygon.attributes = polygonAttributes;
-
-    // Add the polygon to the layer
-    this.renderableLayer.addRenderable(polygon);
-
-    this.createText(avgLat, avgLon, label);
   }
 
   /**
-   * Create a path object in the renderable layer
+   * Shape configuration callback for GeoJSONParser
+   * Defines attributes to be used for visualizing features
    */
-  createPath(coordinates, label = "") {
-    // Create the path's positions.
-    var pathPositions = [];
+   shapeConfigurationCallback(geometry, properties) {
+    let configuration = {
+      name: "",
+      attributes: null,
+      userProperties: properties
+    };
 
-    let avgLat = 0;
-    let avgLon = 0;
+    // Value to be displayed in the feature label. Use either the selected parameter (for EDR)
+    // or one of the possible fields with name or id information
+    let label = properties[this.selectedParameter] ||
+      properties.name ||
+      properties.id ||
+      properties.ogc_id ||
+      properties.gml_id;
 
-    for (let coordinate of coordinates) {
-      pathPositions.push(new WorldWind.Position(coordinate[1], coordinate[0]));
-      avgLat += coordinate[1];
-      avgLon += coordinate[0];
+    if (label) {
+      label = label.toString();
+      configuration.name = label.toString();
+      configuration.userProperties._featureLabel = label;
     }
+    if (geometry.isPointType() || geometry.isMultiPointType()) {
+        configuration.attributes = new WorldWind.PlacemarkAttributes(null);
 
-    avgLat /= coordinates.length;
-    avgLon /= coordinates.length;
+        // Create the custom image for the placemark with a 2D canvas.
+        let canvas = document.createElement("canvas")
+        let ctx2d = canvas.getContext("2d");
+        let size = 64;
+        let c = size / 2 - 0.5;
+        let outerRadius = 5;
 
-    // Create the path.
-    var path = new WorldWind.Path(pathPositions, null);
-    path.altitudeMode = WorldWind.CLAMP_TO_GROUND;
-    path.followTerrain = true;
-    path.useSurfaceShapeFor2D = true; // Use a surface shape in 2D mode.
+        canvas.width = size;
+        canvas.height = size;
 
-    // Create and assign the path's attributes.
-    var pathAttributes = new WorldWind.ShapeAttributes(null);
-    pathAttributes.outlineColor = WorldWind.Color.RED;
-    path.attributes = pathAttributes;
+        ctx2d.fillStyle = "red";
+        ctx2d.arc(c, c, outerRadius, 0, 2 * Math.PI, false);
+        ctx2d.fill();
 
-    this.renderableLayer.addRenderable(path);
-
-    this.createText(avgLat, avgLon, label);
-  }
+        configuration.attributes.imageSource = new WorldWind.ImageSource(canvas);
+    } else if (geometry.isLineStringType() || geometry.isMultiLineStringType()) {
+        configuration.attributes = new WorldWind.ShapeAttributes(null);
+    } else if (geometry.isPolygonType() || geometry.isMultiPolygonType()) {
+        configuration.attributes = new WorldWind.ShapeAttributes(null);
+    }
+    return configuration;
+  };
 
   /**
    * Creates a text object in the renderable layer
@@ -392,11 +339,14 @@ export class EarthComponent implements OnInit, AfterViewInit {
       bboxData = this.selectedFeatureCollection.extent["bbox"];
     }
 
-    // In case the bounding box is in two parts
+    // Bounding box might be defined in different ways
     if (bboxData.length == 2) {
       this.bbox = [...bboxData[0], ...bboxData[1]]
     } else if (bboxData.length == 1) {
       this.bbox = bboxData[0]
+    }
+    else if (bboxData.length == 4) {
+      this.bbox = bboxData
     }
     
     this.getData();
@@ -540,10 +490,9 @@ export class EarthComponent implements OnInit, AfterViewInit {
    */
   onParameterSelected() {
     this.renderableLayer.removeAllRenderables();
-    this.createPlaceMark(
-      this.currentEdrFeature.properties[this.selectedParameter].toString(),
-      this.currentEdrFeature.geometry.coordinates[1], this.currentEdrFeature.geometry.coordinates[0]
-    )
+    
+    let parser = new WorldWind.GeoJSONParser(this.currentEdrFeature);
+    parser.load(this.parserCompletionCallback.bind(this), this.shapeConfigurationCallback.bind(this), this.renderableLayer);
   }
 
   createPlaceMark(label: string, latitude: number, longitude: number) {
