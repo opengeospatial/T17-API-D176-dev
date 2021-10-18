@@ -77,8 +77,11 @@ export class EarthComponent implements OnInit, AfterViewInit {
   ngAfterViewInit() {
     this.wwd = new WorldWind.WorldWindow("earth");
 
-    this.wwd.addLayer(new WorldWind.BMNGLayer());
-    this.wwd.addLayer(new WorldWind.BMNGLandsatLayer());
+    let oiLayer = new WorldWind.BMNGOneImageLayer();
+    oiLayer.minActiveAltitude = 0;
+    this.wwd.addLayer(oiLayer);
+    //this.wwd.addLayer(new WorldWind.BMNGLayer());
+    //this.wwd.addLayer(new WorldWind.BMNGLandsatLayer());
     this.wwd.addLayer(new WorldWind.AtmosphereLayer());
 
     this.wwd.addLayer(new WorldWind.CompassLayer());
