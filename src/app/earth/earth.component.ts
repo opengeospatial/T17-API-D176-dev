@@ -1,8 +1,8 @@
 import { AfterViewInit, Component, OnInit } from '@angular/core';
 import * as WorldWind from 'worldwind-ogctb17';
 import { Subscription, timer } from 'rxjs';
-import { Configuration, CollectionInfoJson, CollectionsService, MapsService, VectorFeaturesAndCatalogueRecordsService } from '../apis/api-daraa';
-import { CapabilitiesService, Collection, CollectionDataQueriesService, CollectionMetadataService, FeatureGeoJSON } from '../apis/api-edr';
+import { Configuration, CollectionInfoJson, CollectionsService, MapsService, VectorFeaturesAndCatalogueRecordsService } from 'api-daraa';
+import { CapabilitiesService, Collection, CollectionDataQueriesService, CollectionMetadataService, FeatureGeoJSON } from 'api-edr';
 
 @Component({
   selector: 'app-earth',
