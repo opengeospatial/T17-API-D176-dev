@@ -26,6 +26,8 @@ import { FlexLayoutModule } from '@angular/flex-layout';
 import { NgxChartsModule } from '@swimlane/ngx-charts';
 
 import { EarthComponent } from './earth/earth.component';
+import { CollectionsService, MapsService, VectorFeaturesAndCatalogueRecordsService } from 'api-daraa';
+import { CapabilitiesService, CollectionDataQueriesService, CollectionMetadataService } from 'api-edr';
 
 
 
@@ -58,9 +60,14 @@ const routes: Routes = [
     MatIconModule,
     MatSliderModule,
     NgxChartsModule,
-    FlexLayoutModule 
+    FlexLayoutModule
   ],
-  providers: [],
+  providers: [CollectionsService,
+              MapsService,
+              VectorFeaturesAndCatalogueRecordsService,
+              CapabilitiesService,
+              CollectionDataQueriesService,
+              CollectionMetadataService],
   bootstrap: [AppComponent]
 })
-export class AppModule {}
+export class AppModule { }

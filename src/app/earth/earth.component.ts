@@ -193,7 +193,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
     this.loading = true;
     this.edrMetadataService.listCollectionDataLocations(
-      this.selectedEdrCollection.id, null, null, 1000).subscribe(result => {
+      this.selectedEdrCollection.id, null, null).subscribe(result => {
         this.loading = false;
 
         this.renderableLayer.removeAllRenderables();
