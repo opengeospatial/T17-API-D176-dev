@@ -1,5 +1,7 @@
 # OgcApiDemo
 
+See the demo at https://ogctb17-apis-breithorn.solenix.ch/#/earth
+
 This is a demo application developed for OGC Testbed 17 API Experiments.    
 The purpose of this demo is to visualize data from OGC Features and EDR API in NASA WorldWind virtual globe.    
 ## Submodules
