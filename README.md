@@ -16,11 +16,14 @@ Once you have checked in the submodules, the easiest way to build and run the pr
 
 ## Dependencies
 After initializing in the submodules, run the following commands to build them and link them as Node modules:    
-`cd local_packages/WebWorldWind-OGCTB17 && npm install && npm run build && npm link`    
-`cd ../api-daraa && npm install && npm run build && cd ./dist && npm link`    
-`cd ../../api-edr && npm install && npm run build && cd ./dist && npm link`
+In `local_packages/WebWorldWind-OGCTB17` run:    
+`npm install && npm run build && npm link`    
+In `local_packages/api-daraa` run:    
+`npm install && npm run build && cd ./dist && npm link`    
+In `local_packages/api-edr` run:    
+`npm install && npm run build && cd ./dist && npm link`
 
-Then go back in the project root and install dependencies:    
+Then go back in the `ogc-api-demo` project root and install dependencies:    
 `npm install`
 And link the git submodules:    
 `npm link worldwind-ogctb17`    
@@ -29,7 +32,7 @@ And link the git submodules:
 
 ## Run
 
-Run `npm run start` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
+After dependencies have been installed, run `npm run start` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
 
 
 ## Build
