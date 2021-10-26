@@ -7,7 +7,7 @@ The demo uses OpenAPI auto-generated client libraries which are available in a s
 NASA WorldWind is forked in this repository:     https://github.com/karriojala/WebWorldWind-OGCTB17    
 Any changes related to rendering data from OGC APIs will be developed there.    
 In the future these can be uploaded in npm registry, however for now they are included as git submodules.    
-The submodules are checked in the project folder under `local_packages` with following command:    
+The submodules are checked in the project folder under *local_packages* with following command:    
 `git submodule update --init `
 
 ## Docker
@@ -16,14 +16,14 @@ Once you have checked in the submodules, the easiest way to build and run the pr
 
 ## Dependencies
 After initializing in the submodules, run the following commands to build them and link them as Node modules:    
-In `local_packages/WebWorldWind-OGCTB17` run:    
+In *local_packages/WebWorldWind-OGCTB17* run:    
 `npm install && npm run build && npm link`    
-In `local_packages/api-daraa` run:    
+In *local_packages/api-daraa* run:    
 `npm install && npm run build && cd ./dist && npm link`    
-In `local_packages/api-edr` run:    
+In *local_packages/api-edr* run:    
 `npm install && npm run build && cd ./dist && npm link`
 
-Then go back in the `ogc-api-demo` project root and install dependencies:    
+Then go back in the *ogc-api-demo* project root and install dependencies:    
 `npm install`
 And link the git submodules:    
 `npm link worldwind-ogctb17`    
