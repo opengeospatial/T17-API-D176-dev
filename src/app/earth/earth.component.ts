@@ -70,7 +70,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
     private dggsAccessService: DGGSAccessService) { }
 
   ngOnInit(): void {
-    WorldWind.Logger.setLoggingLevel(WorldWind.Logger.LEVEL_INFO);
+    //WorldWind.Logger.setLoggingLevel(WorldWind.Logger.LEVEL_INFO);
 
     this.selectedTime = new Date();
     this.selectedTime.setHours(this.selectedTime.getHours() - 1);
