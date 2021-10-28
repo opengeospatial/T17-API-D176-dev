@@ -1,3 +1,4 @@
+<h3 id="dggs-hint" *ngIf="selectedServer.type == 'dggs'" style="position: absolute;">Click a zone to show its children</h3>
 <mat-expansion-panel [expanded]="true" class="settings-panel" hideToggle>
     <mat-expansion-panel-header>
         <mat-panel-title>
@@ -83,6 +84,11 @@
                     <input type="number" matInput [(ngModel)]="bbox[3]" (change)="getData()">
                 </mat-form-field>
             </div>
+        </ng-container>
+
+        <ng-container *ngIf="selectedServer.type == 'dggs'">
+            <button *ngIf="!loading" (click)="getH3Zones()"
+                mat-raised-button color="primary">Reset</button>
         </ng-container>
 
         <div fxLayout="row" fxLayoutAlign="end center" fxFlexFill>

@@ -14,5 +14,13 @@
     "pathRewrite": {
       "^/ogcapi.pixalytics.com": ""
     }
+  },
+  "/tb16.geo-solutions.it/geoserver/ogc/dggs": {
+    "target": "https://tb16.geo-solutions.it/geoserver/ogc/dggs",
+    "secure": false,
+    "logLevel": "debug",
+    "pathRewrite": {
+      "^/tb16.geo-solutions.it/geoserver/ogc/dggs": ""
+    }
   }
 }

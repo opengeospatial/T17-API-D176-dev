@@ -28,6 +28,7 @@ import { NgxChartsModule } from '@swimlane/ngx-charts';
 import { EarthComponent } from './earth/earth.component';
 import { CollectionsService, MapsService, VectorFeaturesAndCatalogueRecordsService } from 'api-daraa';
 import { CapabilitiesService, CollectionDataQueriesService, CollectionMetadataService } from 'api-edr';
+import { DGGSAccessService } from 'api-dggs-old';
 
 
 
@@ -67,7 +68,8 @@ const routes: Routes = [
               VectorFeaturesAndCatalogueRecordsService,
               CapabilitiesService,
               CollectionDataQueriesService,
-              CollectionMetadataService],
+              CollectionMetadataService,
+              DGGSAccessService],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

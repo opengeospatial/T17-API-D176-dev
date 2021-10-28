@@ -1,8 +1,12 @@
 import { AfterViewInit, Component, OnInit } from '@angular/core';
 import * as WorldWind from 'worldwind-ogctb17';
+
+import { h3ToGeoBoundary } from "h3-js";
+
 import { Subscription, timer } from 'rxjs';
 import { Configuration, CollectionInfoJson, CollectionsService, MapsService, VectorFeaturesAndCatalogueRecordsService } from 'api-daraa';
 import { CapabilitiesService, Collection, CollectionDataQueriesService, CollectionMetadataService, FeatureGeoJSON } from 'api-edr';
+import { DGGSAccessService } from 'api-dggs-old';
 
 @Component({
   selector: 'app-earth',
@@ -18,6 +22,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
   public selectedEdrCollection: Collection = null;
   public featureCollections: CollectionInfoJson[];
   public selectedFeatureCollection: CollectionInfoJson = null;
+
   public selectedParameter: string = null;
   public parameters: string[];
   public locations: FeatureGeoJSON[];
@@ -35,6 +40,10 @@ export class EarthComponent implements OnInit, AfterViewInit {
   public playTimer: Subscription;
 
   public servers: Server[] = [
+    {
+      url: "/tb16.geo-solutions.it/geoserver/ogc/dggs",
+      type: "dggs"
+    },
     {
       url: "https://aws4ogc17.webmapengine.com/edr",
       type: "edr"
@@ -57,7 +66,8 @@ export class EarthComponent implements OnInit, AfterViewInit {
     private featureCollectionsService: CollectionsService,
     private edrDataService: CollectionDataQueriesService,
     private edrCapabilitiesService: CapabilitiesService,
-    private edrMetadataService: CollectionMetadataService) { }
+    private edrMetadataService: CollectionMetadataService,
+    private dggsAccessService: DGGSAccessService) { }
 
   ngOnInit(): void {
     WorldWind.Logger.setLoggingLevel(WorldWind.Logger.LEVEL_INFO);
@@ -80,8 +90,8 @@ export class EarthComponent implements OnInit, AfterViewInit {
     let oiLayer = new WorldWind.BMNGOneImageLayer();
     oiLayer.minActiveAltitude = 0;
     this.wwd.addLayer(oiLayer);
-    //this.wwd.addLayer(new WorldWind.BMNGLayer());
-    //this.wwd.addLayer(new WorldWind.BMNGLandsatLayer());
+    this.wwd.addLayer(new WorldWind.BMNGLayer());
+    this.wwd.addLayer(new WorldWind.BMNGLandsatLayer());
     this.wwd.addLayer(new WorldWind.AtmosphereLayer());
 
     this.wwd.addLayer(new WorldWind.CompassLayer());
@@ -95,9 +105,30 @@ export class EarthComponent implements OnInit, AfterViewInit {
     this.wwd.navigator.lookAtLocation.latitude = 0.0;
     this.wwd.navigator.lookAtLocation.longitude = 0.0;
 
-    this.wwd.redraw();
+    let clickRecognizer = new WorldWind.ClickRecognizer(this.wwd, this.handlePick.bind(this));
 
     this.updateServerConfiguration();
+
+    this.wwd.redraw();
+  }
+
+  /**
+   * Handle pick event
+   */
+  handlePick(o) {
+    let x = o.clientX;
+    let y = o.clientY;
+    if (this.selectedServer.type == "dggs") {
+      let pickList = this.wwd.pick(this.wwd.canvasCoordinates(x, y));
+      console.log(pickList);
+      if (pickList) {
+        for (let picked of pickList.objects) {
+          if (picked.userObject.userProperties && picked.userObject.userProperties.zoneId) {
+            this.getChildH3Zones(picked.userObject.userProperties.zoneId, picked.userObject.userProperties.resolution);
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -109,37 +140,37 @@ export class EarthComponent implements OnInit, AfterViewInit {
     this.getData();
   }
 
-    /**
-   * Start slider 'play' mode
-   */
-    playSlider() {
-      this.playTimer = timer(0, 5000).subscribe(() => {
-          this.selectedTimeMs += (this.maxTimeMs - this.minTimeMs) / 10;
-          
-          if (this.selectedTimeMs >= this.maxTimeMs) {
-            this.selectedTimeMs = this.minTimeMs;
-          }
+  /**
+ * Start slider 'play' mode
+ */
+  playSlider() {
+    this.playTimer = timer(0, 5000).subscribe(() => {
+      this.selectedTimeMs += (this.maxTimeMs - this.minTimeMs) / 10;
 
-          this.onTimeSliderChanged();
-      });
-    }
-
-    
-    /**
-     * Stop slider 'play' mode
-     */
-    stopSlider() {
-      if (this.playTimer) {
-        this.playTimer.unsubscribe();
+      if (this.selectedTimeMs >= this.maxTimeMs) {
+        this.selectedTimeMs = this.minTimeMs;
       }
-  
-      this.playTimer = null;
+
+      this.onTimeSliderChanged();
+    });
+  }
+
+
+  /**
+   * Stop slider 'play' mode
+   */
+  stopSlider() {
+    if (this.playTimer) {
+      this.playTimer.unsubscribe();
     }
+
+    this.playTimer = null;
+  }
 
   /**
    * Switch the server used for requesting data
    */
-   updateServerConfiguration() {
+  updateServerConfiguration() {
     let config = new Configuration();
     config.credentials = {};
     config.basePath = this.selectedServer.url;
@@ -161,6 +192,9 @@ export class EarthComponent implements OnInit, AfterViewInit {
         this.selectedEdrCollection = null;
         this.getEdrCollections();
         break;
+      case "dggs":
+        this.dggsAccessService.configuration = config;
+        this.getH3Zones();
     }
   }
 
@@ -179,6 +213,58 @@ export class EarthComponent implements OnInit, AfterViewInit {
       this.loading = false;
       this.featureCollections = result.collections;
     });
+  }
+
+  /**
+   * Request H3 zones
+   */
+  getH3Zones() {
+    this.loading = true;
+    this.dggsAccessService.collectionsCollectionIdZonesGet("dggs:H3", 0, 200).subscribe(r => {
+      this.loading = false;
+      this.renderableLayer.removeAllRenderables();
+      for (let zone of r.features) {
+        this.renderH3Zone(zone);
+      };
+      this.wwd.redraw();
+    });
+  }
+
+  /**
+ * Request child H3 zones
+ */
+  getChildH3Zones(zoneId: string, resolution) {
+    this.loading = true;
+    this.dggsAccessService.collectionsCollectionIdChildrenGet("H3", zoneId, undefined, resolution + 1).subscribe(r => {
+      this.loading = false;
+      for (let zone of r.features) {
+        this.renderH3Zone(zone);
+      };
+      this.wwd.redraw();
+    });
+  }
+
+  /**
+   * Renders a H3 Zone
+   */
+  renderH3Zone(zone) {
+    let hexBoundary = h3ToGeoBoundary(zone["properties"]["zoneId"]);
+
+    // Create a surface polygon.
+    let boundary = [];
+
+    for (let coords of hexBoundary) {
+      boundary.push(new WorldWind.Location(coords[0], coords[1]))
+    }
+
+    let attributes = new WorldWind.ShapeAttributes(null);
+    attributes.interiorColor = new WorldWind.Color(1.0, 0.5, 0.0, 0.1);
+    attributes.outlineColor = new WorldWind.Color(1.0, 0.5, 0.0, 1)
+    attributes.outlineWidth = 3.0;
+
+    let hexagon = new WorldWind.SurfacePolygon(boundary, attributes);
+    hexagon.userProperties = {zoneId: zone["properties"]["zoneId"], resolution: zone["properties"]["resolution"]}
+    this.renderableLayer.addRenderable(hexagon);
   }
 
   /**
@@ -219,35 +305,35 @@ export class EarthComponent implements OnInit, AfterViewInit {
     //NOTE: Order of coordinates in the bbox is inconsistent between collections
     this.featuresService.getFeatures(this.selectedFeatureCollection.id as any, "application/json", 1000,
       [this.bbox[1], this.bbox[0], this.bbox[3], this.bbox[2]]).subscribe(result => {
-      console.log(result as any);
+        console.log(result as any);
 
-      this.loading = false;
+        this.loading = false;
 
-      this.renderableLayer.removeAllRenderables();
+        this.renderableLayer.removeAllRenderables();
 
-      // WorldWind expects CRS in different format
-      if (result["crs"] && result["crs"].properties.name == "urn:ogc:def:crs:OGC::CRS84") {
-        result["crs"].properties.name = "urn:ogc:def:crs:OGC:1.3:CRS84"
-      }
+        // WorldWind expects CRS in different format
+        if (result["crs"] && result["crs"].properties.name == "urn:ogc:def:crs:OGC::CRS84") {
+          result["crs"].properties.name = "urn:ogc:def:crs:OGC:1.3:CRS84"
+        }
 
-      let parser = new WorldWind.GeoJSONParser(result);
-      parser.load(this.parserCompletionCallback.bind(this), this.shapeConfigurationCallback.bind(this), this.renderableLayer);
+        let parser = new WorldWind.GeoJSONParser(result);
+        parser.load(this.parserCompletionCallback.bind(this), this.shapeConfigurationCallback.bind(this), this.renderableLayer);
 
-      // Move camera to the center of the bounding box
-      let centroid = new WorldWind.Location();
+        // Move camera to the center of the bounding box
+        let centroid = new WorldWind.Location();
 
-      let sector = new WorldWind.Sector(this.bbox[1], this.bbox[3], this.bbox[0], this.bbox[2]);
-      sector.centroid(centroid);
-      let currentLocation = this.wwd.navigator.lookAtLocation;
+        let sector = new WorldWind.Sector(this.bbox[1], this.bbox[3], this.bbox[0], this.bbox[2]);
+        sector.centroid(centroid);
+        let currentLocation = this.wwd.navigator.lookAtLocation;
 
-      if (!sector.containsLocation(currentLocation.latitude, currentLocation.longitude)) {
-        this.wwd.goTo(centroid);
-      }
+        if (!sector.containsLocation(currentLocation.latitude, currentLocation.longitude)) {
+          this.wwd.goTo(centroid);
+        }
 
-      this.wwd.redraw();
-    }, err => {
-      this.loading = false;
-    })
+        this.wwd.redraw();
+      }, err => {
+        this.loading = false;
+      })
   }
 
   /**
@@ -262,7 +348,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
         continue;
       }
       if (renderable.userProperties._featureLabel) {
-        
+
         // Show label at the center of the feature
         let centroid = new WorldWind.Location();
         renderable.computeSectors();
@@ -277,7 +363,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
    * Shape configuration callback for GeoJSONParser
    * Defines attributes to be used for visualizing features
    */
-   shapeConfigurationCallback(geometry, properties) {
+  shapeConfigurationCallback(geometry, properties) {
     let configuration = {
       name: "",
       attributes: null,
@@ -298,27 +384,27 @@ export class EarthComponent implements OnInit, AfterViewInit {
       configuration.userProperties._featureLabel = label;
     }
     if (geometry.isPointType() || geometry.isMultiPointType()) {
-        configuration.attributes = new WorldWind.PlacemarkAttributes(null);
+      configuration.attributes = new WorldWind.PlacemarkAttributes(null);
 
-        // Create the custom image for the placemark with a 2D canvas.
-        let canvas = document.createElement("canvas")
-        let ctx2d = canvas.getContext("2d");
-        let size = 64;
-        let c = size / 2 - 0.5;
-        let outerRadius = 5;
+      // Create the custom image for the placemark with a 2D canvas.
+      let canvas = document.createElement("canvas")
+      let ctx2d = canvas.getContext("2d");
+      let size = 64;
+      let c = size / 2 - 0.5;
+      let outerRadius = 5;
 
-        canvas.width = size;
-        canvas.height = size;
+      canvas.width = size;
+      canvas.height = size;
 
-        ctx2d.fillStyle = "red";
-        ctx2d.arc(c, c, outerRadius, 0, 2 * Math.PI, false);
-        ctx2d.fill();
+      ctx2d.fillStyle = "red";
+      ctx2d.arc(c, c, outerRadius, 0, 2 * Math.PI, false);
+      ctx2d.fill();
 
-        configuration.attributes.imageSource = new WorldWind.ImageSource(canvas);
+      configuration.attributes.imageSource = new WorldWind.ImageSource(canvas);
     } else if (geometry.isLineStringType() || geometry.isMultiLineStringType()) {
-        configuration.attributes = new WorldWind.ShapeAttributes(null);
+      configuration.attributes = new WorldWind.ShapeAttributes(null);
     } else if (geometry.isPolygonType() || geometry.isMultiPolygonType()) {
-        configuration.attributes = new WorldWind.ShapeAttributes(null);
+      configuration.attributes = new WorldWind.ShapeAttributes(null);
     }
     return configuration;
   };
@@ -351,7 +437,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
     else if (bboxData.length == 4) {
       this.bbox = bboxData
     }
-    
+
     this.getData();
   }
 
@@ -362,50 +448,50 @@ export class EarthComponent implements OnInit, AfterViewInit {
     this.loading = true;
 
     this.mapsService.mapGet([this.selectedFeatureCollection.id as any], undefined, "CRS84",
-        this.bbox, undefined, undefined, undefined, undefined, undefined,
-        undefined, "png", undefined, undefined, {httpHeaderAccept: "image/png"}).subscribe(result => {
-      console.log(result);
+      this.bbox, undefined, undefined, undefined, undefined, undefined,
+      undefined, "png", undefined, undefined, { httpHeaderAccept: "image/png" }).subscribe(result => {
+        console.log(result);
 
-      try {
-        let imgUrl = window.URL.createObjectURL(new Blob([result], {type: "image/png"}));
+        try {
+          let imgUrl = window.URL.createObjectURL(new Blob([result], { type: "image/png" }));
 
-        // Create canvas to hold the image
-        let canvas = document.createElement("canvas")
-        let ctx2d = canvas.getContext("2d");
+          // Create canvas to hold the image
+          let canvas = document.createElement("canvas")
+          let ctx2d = canvas.getContext("2d");
 
-        let img = new Image();
-        img.src = imgUrl;
+          let img = new Image();
+          img.src = imgUrl;
 
-        img.onload = () => {
-          canvas.height = img.height;
-          canvas.width = img.width;
-          ctx2d.drawImage(img, 0, 0);
+          img.onload = () => {
+            canvas.height = img.height;
+            canvas.width = img.width;
+            ctx2d.drawImage(img, 0, 0);
 
-          this.renderableLayer.removeAllRenderables();
+            this.renderableLayer.removeAllRenderables();
 
-          let sector = new WorldWind.Sector(this.bbox[1], this.bbox[3], this.bbox[0], this.bbox[2]);
+            let sector = new WorldWind.Sector(this.bbox[1], this.bbox[3], this.bbox[0], this.bbox[2]);
 
-          let surfaceImage = new WorldWind.SurfaceImage(
-            sector,
-            new WorldWind.ImageSource(canvas)
-          );
+            let surfaceImage = new WorldWind.SurfaceImage(
+              sector,
+              new WorldWind.ImageSource(canvas)
+            );
 
-          surfaceImage.opacity = 0.8;
+            surfaceImage.opacity = 0.8;
 
-          this.renderableLayer.addRenderable(surfaceImage);
+            this.renderableLayer.addRenderable(surfaceImage);
 
-          this.wwd.redraw();
+            this.wwd.redraw();
+            this.loading = false;
+          }
+        }
+        catch (e) {
+          console.error(e);
           this.loading = false;
         }
-      }
-      catch (e) {
-        console.error(e);
-        this.loading = false;
-      }
 
-    }, err => {
-      this.loading = false;
-    });
+      }, err => {
+        this.loading = false;
+      });
   }
 
   getData() {
@@ -483,7 +569,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
         this.wwd.goTo(goToLocation);
 
         this.wwd.redraw();
-      }, err =>{
+      }, err => {
         this.loading = false;
       });
   }
@@ -493,7 +579,7 @@ export class EarthComponent implements OnInit, AfterViewInit {
    */
   onParameterSelected() {
     this.renderableLayer.removeAllRenderables();
-    
+
     let parser = new WorldWind.GeoJSONParser(this.currentEdrFeature);
     parser.load(this.parserCompletionCallback.bind(this), this.shapeConfigurationCallback.bind(this), this.renderableLayer);
   }
@@ -528,5 +614,5 @@ export class EarthComponent implements OnInit, AfterViewInit {
 
 interface Server {
   url: string;
-  type: "features" | "edr"
+  type: "features" | "edr" | "dggs";
 }
