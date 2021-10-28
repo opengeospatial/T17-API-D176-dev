@@ -20,12 +20,16 @@ RUN npm install && npm run build && cd ./dist && npm link
 WORKDIR /src/local_packages/apis/api-daraa
 RUN npm install && npm run build && cd ./dist && npm link
 
+WORKDIR /src/local_packages/apis/api-dggs-old
+RUN npm install && npm run build && cd ./dist && npm link
+
 WORKDIR /src
 
 RUN npm install
 RUN npm link worldwind-ogctb17
 RUN npm link api-daraa
 RUN npm link api-edr
+RUN npm link api-dggs-old
 
 RUN npm run build --prod
 
